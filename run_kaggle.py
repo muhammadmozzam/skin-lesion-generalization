@@ -6,6 +6,8 @@
                        --fixes none,coloraug,sog --seeds 0 --epochs 10
   python run_kaggle.py --stage summary
   python run_kaggle.py --stage extras --best efficientnet_b0_coloraug_s0
+  python run_kaggle.py --stage calibrate  # temperature scaling fitted on ISIC validation
+  python run_kaggle.py --stage leaky --seeds 0,1,2  # ablation: keep HAM10000 inside ISIC training
   python run_kaggle.py --stage pack     # results.zip without weights/images
 """
 import argparse
@@ -44,7 +46,7 @@ def is_pad(d, f):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", required=True,
-                    choices=["prep", "check", "train", "summary", "extras", "pack"])
+                    choices=["prep", "check", "train", "summary", "extras", "calibrate", "leaky", "pack"])
     ap.add_argument("--models", default="efficientnet_b0,resnet50,deit_small")
     ap.add_argument("--fixes", default="none,coloraug,sog")
     ap.add_argument("--seeds", default="0")
@@ -76,8 +78,23 @@ def main():
         run = os.path.join(RES, a.best)
         sh("gradcam.py", "--run", run, "--splits", SPLITS)
         sh("export_onnx.py", "--run", run, "--splits", SPLITS)
+    elif a.stage == "calibrate":
+        sh("calibrate.py", "--results", RES, "--splits", SPLITS)
+    elif a.stage == "leaky":
+        isic = dataset_root(lambda d, f: f == "ISIC_2019_Training_GroundTruth.csv")
+        ham = dataset_root(lambda d, f: f == "HAM10000_metadata.csv")
+        pad = dataset_root(is_pad)
+        leaky = os.path.join(W, "data", "splits_leaky.csv")
+        sh("data.py", "--isic", isic, "--ham", ham, "--pad", pad, "--out", leaky, "--keep_ham_overlap")
+        sh("preprocess.py", "--splits", leaky, "--out", os.path.join(W, "data", "cache"), "--workers", "4")
+        out = os.path.join(W, "results_leaky")
+        for s in a.seeds.split(","):
+            if not os.path.exists(os.path.join(out, f"efficientnet_b0_none_s{s}", "metrics.csv")):
+                sh("train.py", "--splits", leaky, "--model", "efficientnet_b0", "--fix", "none",
+                   "--seed", s, "--epochs", a.epochs, "--out", out)
+        sh("summarize.py", "--results", out)
     elif a.stage == "pack":
-        subprocess.run(f'cd {W} && zip -qr results.zip results -x "*.pt" "*.onnx" && ls -lh results.zip',
+        subprocess.run(f'cd {W} && zip -qr results.zip $(ls -d results results_leaky 2>/dev/null) -x "*.pt" "*.onnx" && ls -lh results.zip',
                        shell=True, check=True)
 
 
