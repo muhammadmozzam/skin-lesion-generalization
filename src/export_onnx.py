@@ -30,9 +30,12 @@ def main():
     model.eval()
 
     fp32, int8 = run / "model.onnx", run / "model_int8.onnx"
-    torch.onnx.export(model, torch.randn(1, 3, 224, 224), fp32, input_names=["image"],
-                      output_names=["logits"], dynamic_axes={"image": {0: "b"}, "logits": {0: "b"}},
-                      opset_version=17, dynamo=False)
+    kw = dict(input_names=["image"], output_names=["logits"],
+              dynamic_axes={"image": {0: "b"}, "logits": {0: "b"}}, opset_version=17)
+    try:  # newer PyTorch: use the classic exporter
+        torch.onnx.export(model, torch.randn(1, 3, 224, 224), fp32, dynamo=False, **kw)
+    except TypeError:  # older PyTorch has no 'dynamo' argument
+        torch.onnx.export(model, torch.randn(1, 3, 224, 224), fp32, **kw)
     quantize_dynamic(str(fp32), str(int8), weight_type=QuantType.QInt8)
 
     df = pd.read_csv(a.splits)
