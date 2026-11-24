@@ -4,6 +4,7 @@ timm>=0.9.12
 pandas
 numpy
 scikit-learn
+scipy
 pillow
 grad-cam>=1.5
 onnx
