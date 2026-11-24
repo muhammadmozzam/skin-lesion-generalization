@@ -139,7 +139,8 @@ def main():
 
     model.load_state_dict(torch.load(out / "best.pt", map_location=dev))
     rows, preds = [], []
-    sets = {"ISIC2019-test": df[df.split == "test"],
+    sets = {"ISIC2019-val": va,
+            "ISIC2019-test": df[df.split == "test"],
             "HAM10000": df[df.source == "HAM10000"],
             "PAD-UFES-20": df[df.source == "PAD-UFES-20"]}
     for name, d in sets.items():
