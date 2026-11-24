@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+data/
+results/*/best.pt
+*.onnx
+.ipynb_checkpoints/
