@@ -107,10 +107,15 @@ def main():
     ap.add_argument("--ham", required=True, help="folder with HAM10000 images + metadata")
     ap.add_argument("--pad", required=True, help="folder with PAD-UFES-20 images + metadata.csv")
     ap.add_argument("--out", default="data/splits.csv")
+    ap.add_argument("--keep_ham_overlap", action="store_true",
+                    help="ablation only: keep HAM10000 images in ISIC training (leaky setup many papers use)")
     args = ap.parse_args()
 
     ham = load_ham(args.ham)
     ham_ids = set(pd.read_csv(find_file(args.ham, "HAM10000_metadata.csv"))["image_id"])
+    if args.keep_ham_overlap:
+        print("WARNING: leaky ablation - HAM10000 images stay in the ISIC 2019 training data")
+        ham_ids = set()
     isic = group_split(load_isic2019(args.isic, ham_ids))
     ham["split"] = "external"
     pad = load_pad(args.pad)
