@@ -23,6 +23,8 @@ images from another hospital or camera. How big is that drop, and which simple f
 | Models | ResNet-50, EfficientNet-B0, DeiT-Small (ImageNet pretrained, `timm`) |
 | Fixes | none · strong colour augmentation · Shades-of-Gray colour normalisation · test-time augmentation |
 | Metrics | AUC, balanced accuracy, F1, sensitivity, specificity, expected calibration error (ECE), Brier |
+| Calibration | Temperature scaling fitted on ISIC validation only, applied unchanged to every outside dataset |
+| Leakage ablation | Same model trained *with* the HAM10000 images left inside ISIC 2019, to measure how much this common overlap inflates HAM10000 results |
 | Protocol | Checkpoint chosen on ISIC validation only; 3 seeds per setting, mean ± std reported |
 
 ## Results
@@ -58,7 +60,7 @@ Create a notebook, attach the three datasets (`andrewmvd/isic-2019`,
 
 ## Repository layout
 ```
-src/           data prep, training, metrics, Grad-CAM, ONNX export
+src/           data prep, training, metrics, calibration, Grad-CAM, ONNX export
 app/           Gradio demo for Hugging Face Spaces
 run_kaggle.py  one-command runner for Kaggle
 results/       metrics tables and figures (no images, no weights)
