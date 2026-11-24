@@ -1,0 +1,11 @@
+torch>=2.1
+torchvision>=0.16
+timm>=0.9.12
+pandas
+numpy
+scikit-learn
+pillow
+grad-cam>=1.5
+onnx
+onnxruntime>=1.17
+matplotlib
