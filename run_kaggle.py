@@ -1,4 +1,4 @@
-"""One-command runner for Kaggle.
+"""One-command runner for Kaggle (also works on Colab: set SLG_WORK and SLG_INPUT).
 
   python run_kaggle.py --stage prep     # find datasets, build splits, resize images
   python run_kaggle.py --stage check    # 1-epoch tiny run to test the setup
@@ -16,7 +16,8 @@ import os
 import subprocess
 import sys
 
-W = "/kaggle/working"
+W = os.environ.get("SLG_WORK", "/kaggle/working")
+INPUT = os.environ.get("SLG_INPUT", "/kaggle/input")
 SRC = os.path.join(W, "skin-lesion-generalization", "src")
 SPLITS = os.path.join(W, "data", "splits.csv")
 RES = os.path.join(W, "results")
@@ -28,11 +29,14 @@ def sh(*args):
 
 
 def dataset_root(test):
-    for d, _, files in os.walk("/kaggle/input"):
+    """Folder of the attached dataset that holds a file matching `test`:
+    INPUT/<slug> or, in Kaggle's newer layout, INPUT/datasets/<owner>/<slug>."""
+    for d, _, files in os.walk(INPUT):
         for f in files:
             if test(d, f):
-                parts = d.split("/")
-                return "/".join(parts[:6]) if len(parts) > 5 and parts[3] == "datasets" else "/".join(parts[:4])
+                rel = os.path.relpath(d, INPUT).split(os.sep)
+                keep = 3 if rel[0] == "datasets" and len(rel) >= 3 else 1
+                return os.path.join(INPUT, *rel[:keep])
     return None
 
 
