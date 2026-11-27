@@ -71,6 +71,13 @@ def predict(model, loader, dev, tta=False):
             views = [torch.rot90(v, k, (2, 3)) for v in (x, x.flip(3)) for k in range(4)]
         with torch.autocast("cuda", enabled=dev == "cuda"):
             pr = torch.stack([model(v).float().softmax(1)[:, 1] for v in views]).mean(0)
+        if not torch.isfinite(pr).all():
+            # fp16 overflow on a few images: redo this batch in full precision
+            pr = torch.stack([model(v.float()).float().softmax(1)[:, 1] for v in views]).mean(0)
+            bad = int((~torch.isfinite(pr)).sum())
+            if bad:
+                print(f"warning: {bad} non-finite predictions set to 0.5", flush=True)
+                pr = torch.nan_to_num(pr, nan=0.5, posinf=1.0, neginf=0.0)
         out.append(pr.cpu())
     return torch.cat(out).numpy()
 
@@ -119,7 +126,10 @@ def main():
     scaler = torch.cuda.amp.GradScaler(enabled=dev == "cuda")
 
     best, log = -1.0, []
-    for ep in range(a.epochs):
+    done = (out / "best.pt").exists() and (out / "train_log.csv").exists()
+    if done:  # training finished earlier (e.g. the run stopped during evaluation): evaluate only
+        print(f"[{run}] found finished training, evaluating best.pt", flush=True)
+    for ep in range(0 if done else a.epochs):
         model.train(); t0 = time.time(); tot = 0.0
         for x, y in tl:
             x, y = x.to(dev, non_blocking=True), y.to(dev, non_blocking=True)
@@ -135,7 +145,8 @@ def main():
         if m["auc"] > best:  # selection uses ISIC validation only
             best = m["auc"]
             torch.save(model.state_dict(), out / "best.pt")
-    pd.DataFrame(log).to_csv(out / "train_log.csv", index=False)
+    if not done:
+        pd.DataFrame(log).to_csv(out / "train_log.csv", index=False)
 
     model.load_state_dict(torch.load(out / "best.pt", map_location=dev))
     rows, preds = [], []
